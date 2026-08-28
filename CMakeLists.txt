@@ -8,4 +8,5 @@ add_executable(ftlsimulator main.cpp
         flash_memory.h
         flash_memory.cpp
         mapping_table_dram.h
-        mapping_table_dram.cpp)
+        mapping_table_dram.cpp
+        ftl_controller.h)
