@@ -1,6 +1,10 @@
+#pragma once
+
 #include "types.h"
 #include "flash_memory.h"
 #include "mapping_table_dram.h"
+
+using namespace std;
 
 /*
  * ftl controller file
@@ -28,13 +32,13 @@ struct FTLStates {
     uint64_t gcCopiedPagesCount = 0;
 };
 
-// references
-FlashMemory& flash_memory; // NAND
-MappingTable mapping_table; // DRAM
-
 // ftl controller
 class FTL {
 private:
+    // references
+    FlashMemory& flash_memory; // NAND
+    MappingTable mapping_table; // DRAM
+
     vector<int> validCount; // validCount[blockId] = valid page count
     vector<PageOffset> nextOffset; // nextOffset[blockId] = next offset when program
     vector<bool> isFree; // isFree[blockId] = this block is free(GC, Initial) or not
