@@ -61,6 +61,58 @@ BlockId FTL::selectVictim() const {
 }
 
 // gc
+// clear victim block(move valid data to other block)
 bool FTL::garbageCollection() {
+    BlockId victim = selectVictim();
+    if (victim == INVALID_BLOCK) return false;
 
+    // clear
+    for (int offset = 0; offset < flash_memory.pagesPerBlockGet(); offset++) {
+        PPN ppn = flash_memory.makePPN(victim, offset);
+        PageTag tag = flash_memory.read(ppn);
+
+        if (tag.owner != PageOwner::USER) continue;
+
+        if (mapping_table.lookup(tag.lpn) != ppn) continue;
+
+        PPN new_ppn = programPage(tag);
+        mapping_table.update(tag.lpn, new_ppn);
+    }
+
+    flash_memory.erase(victim);
+    validCount[victim] = 0;
+    isFree[victim] = true;
+    return true;
+}
+
+// read data
+PPN FTL::read(LPN lpn) const {
+    PPN ppn = mapping_table.lookup(lpn);
+
+    // if existing ppn
+    if (ppn != INVALID_PPN) flash_memory.read(ppn);
+
+    return ppn;
+}
+
+void FTL::write(LPN lpn) {
+    // gc triggers only openBlock == INVALID
+    while (openBlock == INVALID_BLOCK) {
+        int freeBlock_count = 0;
+        for (int b = 0; b < flash_memory.numBlocksGet(); b++) {
+            if (isFree[b]) freeBlock_count++;
+        }
+
+        if (freeBlock_count >= reservedFreeBlocks) break;
+
+        if (!garbageCollection()) break;
+    }
+
+    PPN old_ppn = mapping_table.lookup(lpn);
+    PPN new_ppn = programPage(PageTag{.owner = PageOwner::USER, .lpn = lpn});
+
+    // if mapping already exists
+    if (old_ppn != INVALID_PPN) invalidatePage(old_ppn);
+
+    mapping_table.update(lpn, new_ppn);
 }
