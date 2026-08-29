@@ -4,6 +4,18 @@
 #include <stdexcept>
 #include <string>
 
+// constructor
+FTL::FTL(FlashMemory& flash, int num_lpn, int reserved): flash_memory(flash), mapping_table(num_lpn){
+    reservedFreeBlocks = reserved;
+    openBlock = INVALID_BLOCK;
+
+    for (int i = 0; i < flash.numBlocksGet(); i++) {
+        validCount.push_back(0);
+        nextOffset.push_back(0);
+        isFree.push_back(true);
+    }
+}
+
 // open front free block
 void FTL::openNewBlock() {
     for (int b = 0; b < flash_memory.numBlocksGet(); b++) {
@@ -15,7 +27,7 @@ void FTL::openNewBlock() {
         }
     }
 
-    throw runtine_error("openNewBlock failed: no free block");
+    throw runtime_error("openNewBlock failed: no free block");
 }
 
 // program tag on openBlock
