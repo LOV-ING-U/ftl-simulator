@@ -1,11 +1,10 @@
-#pragma once
-
 #include "ftl_controller.h"
 #include <stdexcept>
 #include <string>
+#include <random>
 
 // constructor
-FTL::FTL(FlashMemory& flash, int num_lpn, int reserved): flash_memory(flash), mapping_table(num_lpn){
+FTL::FTL(FlashMemory& flash, int num_lpn, int reserved, VictimPolicy vPolicy): flash_memory(flash), mapping_table(num_lpn), victimPolicy(vPolicy){
     reservedFreeBlocks = reserved;
     openBlock = INVALID_BLOCK;
 
@@ -55,21 +54,43 @@ void FTL::invalidatePage(PPN ppn) {
 
 // select victim blockId
 BlockId FTL::selectVictim() const {
-    BlockId victim = INVALID_BLOCK;
-    int invalid_count = 0;
+    // 1. random
+    if (victimPolicy == VictimPolicy::RANDOM) {
+        static mt19937 rng(123);
+        vector<BlockId> candidates;
 
-    for (int b = 0; b < flash_memory.numBlocksGet(); b++) {
-        if (isFree[b] || b == openBlock) continue;
+        // just choose random victim
+        for (int b = 0; b < flash_memory.numBlocksGet(); b++) {
+            if (isFree[b] || b == openBlock) continue;
 
-        int invalid_b = flash_memory.pagesPerBlockGet() - validCount[b];
-
-        if (invalid_b > invalid_count) {
-            invalid_count = invalid_b;
-            victim = b;
+            candidates.push_back(b);
         }
+
+        if (candidates.empty()) return INVALID_BLOCK;
+
+        // pick random
+        uniform_int_distribution<int> pick(0, (int)candidates.size() - 1);
+
+        return candidates[pick(rng)];
+    } else if (victimPolicy == VictimPolicy::GREEDY) {
+        BlockId victim = INVALID_BLOCK;
+        int invalid_count = 0;
+
+        for (int b = 0; b < flash_memory.numBlocksGet(); b++) {
+            if (isFree[b] || b == openBlock) continue;
+
+            int invalid_b = flash_memory.pagesPerBlockGet() - validCount[b];
+
+            if (invalid_b > invalid_count) {
+                invalid_count = invalid_b;
+                victim = b;
+            }
+        }
+
+        return victim;
     }
 
-    return victim;
+    return 0;
 }
 
 // gc

@@ -32,6 +32,26 @@ struct FTLStates {
     uint64_t gcCopiedPagesCount = 0;
 };
 
+// simulate adjust factor
+// 1. select victim block policy
+enum class VictimPolicy {
+    RANDOM,
+    GREEDY,
+    COST_BENEFIT
+};
+
+// 2. select new free block policy
+enum class FreeBlockPolicy {
+    ANY,
+    DYNAMIC_WL
+};
+
+// 3. write pattern policy
+enum class WritePattern {
+    UNIFORM,
+    ZIPF_DISTRIBUTE
+};
+
 // ftl controller
 class FTL {
 private:
@@ -54,9 +74,12 @@ private:
     void invalidatePage(PPN ppn); // when already ppn filled, then -1 validCount of old ppn block (left org data, but cannot access)
     void openNewBlock(); // when openBlock is invalid(check at write attempt), pick free block and open
 
+    // Policy
+    VictimPolicy victimPolicy;
+
 public:
     // constructor
-    FTL (FlashMemory& flash, int numLPNs, int reserved);
+    FTL (FlashMemory& flash, int numLPNs, int reserved, VictimPolicy vPolicy);
 
     // functions for OS
     PPN read(LPN lpn) const;
