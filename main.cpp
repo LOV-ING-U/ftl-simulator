@@ -73,7 +73,7 @@ void runSimulate(int numBlocks, int pagesPerBlock, int num_lpns, int reservedFre
 
 void runExperiment(int expNum, VictimPolicy victimPolicy, const char* victimLabel, WritePattern writePattern, const char* writePatternLabel, double zipfS, int numBlocks, int pagesPerBlock, int reservedFreeBlocks, int writeCount, const double* utilizations, int utilizationCount) {
     if (writePattern == WritePattern::ZIPF_DISTRIBUTE) {
-        printf("[Experiment %d] Write Pattern = %s(s=%.1f) / VictimPolicy = %s / Next free block choose policy = ANY\n\n", expNum, writePatternLabel, zipfS, victimLabel);
+        printf("[Experiment %d] Write Pattern = %s (s = %.1f) / VictimPolicy = %s / Next free block choose policy = ANY\n\n", expNum, writePatternLabel, zipfS, victimLabel);
     } else {
         printf("[Experiment %d] Write Pattern = %s / VictimPolicy = %s / Next free block choose policy = ANY\n\n", expNum, writePatternLabel, victimLabel);
     }
