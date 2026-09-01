@@ -21,6 +21,12 @@ Erase: per Block
 3) Controller: Run FTL
 */
 
+// 3. write pattern policy
+enum class WritePattern {
+    UNIFORM,
+    ZIPF_DISTRIBUTE
+};
+
 using namespace std;
 
 double computeHostIOPS(uint64_t programs, uint64_t erases, uint64_t reads, int hostOps, double programLatencyMs, double eraseLatencyMs, double readLatencyMs) {

@@ -46,12 +46,6 @@ enum class FreeBlockPolicy {
     DYNAMIC_WL
 };
 
-// 3. write pattern policy
-enum class WritePattern {
-    UNIFORM,
-    ZIPF_DISTRIBUTE
-};
-
 // ftl controller
 class FTL {
 private:
