@@ -1,5 +1,7 @@
 #include <iostream>
 #include <random>
+#include <vector>
+#include <cmath>
 #include "flash_memory.h"
 #include "ftl_controller.h"
 
@@ -21,13 +23,12 @@ Erase: per Block
 3) Controller: Run FTL
 */
 
-// 3. write pattern policy
+using namespace std;
+
 enum class WritePattern {
     UNIFORM,
     ZIPF_DISTRIBUTE
 };
-
-using namespace std;
 
 double computeHostIOPS(uint64_t programs, uint64_t erases, uint64_t reads, int hostOps, double programLatencyMs, double eraseLatencyMs, double readLatencyMs) {
     double totalMs = programs * programLatencyMs + erases * eraseLatencyMs + reads * readLatencyMs;
@@ -35,15 +36,26 @@ double computeHostIOPS(uint64_t programs, uint64_t erases, uint64_t reads, int h
     return hostOps / totalSec;
 }
 
-void runSimulateUniform(int numBlocks, int pagesPerBlock, int num_lpns, int reservedFreeBlocks, int writeCount, VictimPolicy victimPolicy, int index) {
+void runSimulate(int numBlocks, int pagesPerBlock, int num_lpns, int reservedFreeBlocks, int writeCount, VictimPolicy victimPolicy, WritePattern writePattern, double zipfS, int index) {
     FlashMemory flash(numBlocks, pagesPerBlock);
     FTL ftl_controller(flash, num_lpns, reservedFreeBlocks, victimPolicy);
 
-    mt19937 rng(42); // for repeatability
-    uniform_int_distribution<int> dist(0, num_lpns - 1);
+    mt19937 rng(42);
 
-    for (int i = 0; i < writeCount; i++) {
-        ftl_controller.write(dist(rng));
+    if (writePattern == WritePattern::UNIFORM) {
+        uniform_int_distribution<int> dist(0, num_lpns - 1);
+        for (int i = 0; i < writeCount; i++) {
+            ftl_controller.write(dist(rng));
+        }
+    } else {
+        vector<double> weights(num_lpns);
+        for (int k = 0; k < num_lpns; k++) {
+            weights[k] = 1.0 / pow(k + 1, zipfS);
+        }
+        discrete_distribution<int> dist(weights.begin(), weights.end());
+        for (int i = 0; i < writeCount; i++) {
+            ftl_controller.write(dist(rng));
+        }
     }
 
     int totalPages = numBlocks * pagesPerBlock;
@@ -59,15 +71,18 @@ void runSimulateUniform(int numBlocks, int pagesPerBlock, int num_lpns, int rese
     printf("   host IOPS     : %.0f\n\n", iops);
 }
 
-void runExperiment(int expNum, VictimPolicy victimPolicy, const char* victimLabel, int numBlocks, int pagesPerBlock, int reservedFreeBlocks, int writeCount, const double* utilizations, int utilizationCount) {
-    printf("[Experiment %d] Write Pattern = UNIFORM / VictimPolicy = %s / Next free block choose policy = ANY\n\n", expNum, victimLabel);
+void runExperiment(int expNum, VictimPolicy victimPolicy, const char* victimLabel, WritePattern writePattern, const char* writePatternLabel, double zipfS, int numBlocks, int pagesPerBlock, int reservedFreeBlocks, int writeCount, const double* utilizations, int utilizationCount) {
+    if (writePattern == WritePattern::ZIPF_DISTRIBUTE) {
+        printf("[Experiment %d] Write Pattern = %s(s=%.1f) / VictimPolicy = %s / Next free block choose policy = ANY\n\n", expNum, writePatternLabel, zipfS, victimLabel);
+    } else {
+        printf("[Experiment %d] Write Pattern = %s / VictimPolicy = %s / Next free block choose policy = ANY\n\n", expNum, writePatternLabel, victimLabel);
+    }
 
     int totalPages = numBlocks * pagesPerBlock;
     for (int i = 0; i < utilizationCount; i++) {
         int num_lpn = (int)(totalPages * utilizations[i]);
 
-        runSimulateUniform(numBlocks, pagesPerBlock, num_lpn, reservedFreeBlocks, writeCount,
-                            victimPolicy, i + 1);
+        runSimulate(numBlocks, pagesPerBlock, num_lpn, reservedFreeBlocks, writeCount, victimPolicy, writePattern, zipfS, i + 1);
     }
     printf("\n");
 }
@@ -80,7 +95,9 @@ int main() {
     double utilizations[] = {0.50, 0.70, 0.85, 0.90};
     int utilizationCount = 4;
 
-    runExperiment(1, VictimPolicy::RANDOM, "RANDOM", numBlocks, pagesPerBlock, reservedFreeBlocks, writeCount, utilizations, utilizationCount);
+    runExperiment(1, VictimPolicy::RANDOM, "RANDOM", WritePattern::UNIFORM, "UNIFORM", 0.0, numBlocks, pagesPerBlock, reservedFreeBlocks, writeCount, utilizations, utilizationCount);
 
-    runExperiment(2, VictimPolicy::GREEDY, "GREEDY", numBlocks, pagesPerBlock, reservedFreeBlocks, writeCount, utilizations, utilizationCount);
+    runExperiment(2, VictimPolicy::GREEDY, "GREEDY", WritePattern::UNIFORM, "UNIFORM", 0.0, numBlocks, pagesPerBlock, reservedFreeBlocks, writeCount, utilizations, utilizationCount);
+
+    runExperiment(3, VictimPolicy::GREEDY, "GREEDY", WritePattern::ZIPF_DISTRIBUTE, "ZIPF", 1.2, numBlocks, pagesPerBlock, reservedFreeBlocks, writeCount, utilizations, utilizationCount);
 }
