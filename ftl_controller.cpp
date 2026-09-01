@@ -4,9 +4,10 @@
 #include <random>
 
 // constructor
-FTL::FTL(FlashMemory& flash, int num_lpn, int reserved, VictimPolicy vPolicy): flash_memory(flash), mapping_table(num_lpn), victimPolicy(vPolicy){
+FTL::FTL(FlashMemory& flash, int num_lpn, int reserved, VictimPolicy vPolicy, int endurance_limit): flash_memory(flash), mapping_table(num_lpn), victimPolicy(vPolicy){
     reservedFreeBlocks = reserved;
     openBlock = INVALID_BLOCK;
+    enduranceLimit = endurance_limit;
 
     for (int i = 0; i < flash.numBlocksGet(); i++) {
         validCount.push_back(0);
@@ -62,6 +63,7 @@ BlockId FTL::selectVictim() const {
         // just choose random victim
         for (int b = 0; b < flash_memory.numBlocksGet(); b++) {
             if (isFree[b] || b == openBlock) continue;
+            if (eraseCount[b] >= enduranceLimit) continue;
 
             candidates.push_back(b);
         }
@@ -78,6 +80,7 @@ BlockId FTL::selectVictim() const {
 
         for (int b = 0; b < flash_memory.numBlocksGet(); b++) {
             if (isFree[b] || b == openBlock) continue;
+            if (eraseCount[b] >= enduranceLimit) continue;
 
             int invalid_b = flash_memory.pagesPerBlockGet() - validCount[b];
 
@@ -113,6 +116,7 @@ bool FTL::garbageCollection() {
     }
 
     flash_memory.erase(victim);
+    eraseCount[victim]++;
     validCount[victim] = 0;
     isFree[victim] = true;
     return true;

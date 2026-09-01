@@ -59,6 +59,9 @@ private:
     BlockId openBlock; // currently using blockId
     int reservedFreeBlocks; // if reservedFreeBlocks >= emptyBlock, GC Triggers
 
+    int enduranceLimit; // block age
+    vector<int> eraseCount; // eraseCount[blockId] = erase count of this block
+
     // functions for ftl controller
     PPN programPage(const PageTag& tag);
 
@@ -73,7 +76,7 @@ private:
 
 public:
     // constructor
-    FTL (FlashMemory& flash, int numLPNs, int reserved, VictimPolicy vPolicy);
+    FTL (FlashMemory& flash, int numLPNs, int reserved, VictimPolicy vPolicy, int enduranceLimit);
 
     // functions for OS
     PPN read(LPN lpn) const;

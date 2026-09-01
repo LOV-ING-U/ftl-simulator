@@ -36,9 +36,9 @@ double computeHostIOPS(uint64_t programs, uint64_t erases, uint64_t reads, int h
     return hostOps / totalSec;
 }
 
-void runSimulate(int numBlocks, int pagesPerBlock, int num_lpns, int reservedFreeBlocks, int writeCount, VictimPolicy victimPolicy, WritePattern writePattern, double zipfS, int index) {
+void runSimulate(int numBlocks, int pagesPerBlock, int num_lpns, int reservedFreeBlocks, int writeCount, VictimPolicy victimPolicy, WritePattern writePattern, double zipfS, int enduranceLimit, int index) {
     FlashMemory flash(numBlocks, pagesPerBlock);
-    FTL ftl_controller(flash, num_lpns, reservedFreeBlocks, victimPolicy);
+    FTL ftl_controller(flash, num_lpns, reservedFreeBlocks, victimPolicy, enduranceLimit);
 
     mt19937 rng(42);
 
@@ -82,7 +82,7 @@ void runExperiment(int expNum, VictimPolicy victimPolicy, const char* victimLabe
     for (int i = 0; i < utilizationCount; i++) {
         int num_lpn = (int)(totalPages * utilizations[i]);
 
-        runSimulate(numBlocks, pagesPerBlock, num_lpn, reservedFreeBlocks, writeCount, victimPolicy, writePattern, zipfS, i + 1);
+        runSimulate(numBlocks, pagesPerBlock, num_lpn, reservedFreeBlocks, writeCount, victimPolicy, writePattern, zipfS, 1000000000, i + 1);
     }
     printf("\n");
 }
