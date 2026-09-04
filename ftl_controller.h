@@ -62,6 +62,10 @@ private:
     int enduranceLimit; // block age
     vector<int> eraseCount; // eraseCount[blockId] = erase count of this block
 
+
+    int globalWriteClock; // global write call count
+    vector<int> blockClosedAt; // blockClosedAt[blockId] = time of block [blockId] filled all
+
     // functions for ftl controller
     PPN programPage(const PageTag& tag);
 
@@ -81,4 +85,9 @@ public:
     // functions for OS
     PPN read(LPN lpn) const;
     void write(LPN lpn);
+
+    // for get age information
+    int maxEraseCountGet() const;
+    int minEraseCountGet() const;
+    int retiredBlockCountGet() const;
 };

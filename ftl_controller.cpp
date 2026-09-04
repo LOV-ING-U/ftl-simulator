@@ -8,11 +8,14 @@ FTL::FTL(FlashMemory& flash, int num_lpn, int reserved, VictimPolicy vPolicy, in
     reservedFreeBlocks = reserved;
     openBlock = INVALID_BLOCK;
     enduranceLimit = endurance_limit;
+    globalWriteClock = 0;
 
     for (int i = 0; i < flash.numBlocksGet(); i++) {
         validCount.push_back(0);
         nextOffset.push_back(0);
+        eraseCount.push_back(0);
         isFree.push_back(true);
+        blockClosedAt.push_back(0);
     }
 }
 
@@ -41,7 +44,10 @@ PPN FTL::programPage(const PageTag& tag) {
     validCount[openBlock]++;
 
     // this block is full
-    if (nextOffset[openBlock] == flash_memory.pagesPerBlockGet()) openBlock = INVALID_BLOCK;
+    if (nextOffset[openBlock] == flash_memory.pagesPerBlockGet()) {
+        blockClosedAt[openBlock] = globalWriteClock;
+        openBlock = INVALID_BLOCK;
+    }
 
     return ppn;
 }
@@ -91,9 +97,33 @@ BlockId FTL::selectVictim() const {
         }
 
         return victim;
-    }
+    } else { // victimPolicy == VictimPolicy::COST_BENEFIT
+        BlockId victim = INVALID_BLOCK;
 
-    return 0;
+        // equation
+        // v_p = validCount[blockId] / pagesPerBlockGet()
+        // cost = 1 + v_p (1 = read all block / v_p = valid page should be written to other block
+        // benefit = (1 - v_p) * age (1 - v_p = ratio of pages that can be erased without additional write / age = should be cleared as soon as possible)
+        // score = benefit / cost
+
+        double score_max = 0.0;
+
+        for (int b = 0; b < flash_memory.numBlocksGet(); b++) {
+            if (isFree[b] || b == openBlock) continue;
+            if (eraseCount[b] >= enduranceLimit) continue;
+
+            double v_p = (double)validCount[b] / flash_memory.pagesPerBlockGet();
+            int age = globalWriteClock - blockClosedAt[b];
+            double score = (1.0 - v_p) * (double)age / (1.0 + v_p);
+
+            if (score > score_max) {
+                score_max = score;
+                victim = b;
+            }
+        }
+
+        return victim;
+    }
 }
 
 // gc
@@ -133,6 +163,9 @@ PPN FTL::read(LPN lpn) const {
 }
 
 void FTL::write(LPN lpn) {
+    // global clock
+    globalWriteClock++;
+
     // gc triggers only openBlock == INVALID
     while (openBlock == INVALID_BLOCK) {
         int freeBlock_count = 0;
@@ -152,4 +185,22 @@ void FTL::write(LPN lpn) {
     if (old_ppn != INVALID_PPN) invalidatePage(old_ppn);
 
     mapping_table.update(lpn, new_ppn);
+}
+
+int FTL::maxEraseCountGet() const {
+    int m = eraseCount[0];
+    for (int v : eraseCount) if (v > m) m = v;
+    return m;
+}
+
+int FTL::minEraseCountGet() const {
+    int m = eraseCount[0];
+    for (int v : eraseCount) if (v < m) m = v;
+    return m;
+}
+
+int FTL::retiredBlockCountGet() const {
+    int c = 0;
+    for (int v : eraseCount) if (v >= enduranceLimit) c++;
+    return c;
 }
